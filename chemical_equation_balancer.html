@@ -1,0 +1,808 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chemical Equation Balancer</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0f1117;
+    --surface: #181c27;
+    --surface2: #1e2333;
+    --border: rgba(255,255,255,0.08);
+    --border2: rgba(255,255,255,0.14);
+    --text: #e8eaf0;
+    --muted: #7a8099;
+    --accent: #4f8ef7;
+    --accent-dim: rgba(79,142,247,0.12);
+    --accent-dim2: rgba(79,142,247,0.22);
+    --success: #3ecf8e;
+    --success-dim: rgba(62,207,142,0.12);
+    --danger: #f75f5f;
+    --danger-dim: rgba(247,95,95,0.12);
+    --warning: #f7b955;
+    --warning-dim: rgba(247,185,85,0.1);
+    --mono: 'DM Mono', monospace;
+    --sans: 'DM Sans', sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    min-height: 100vh;
+    padding: 2rem 1rem 4rem;
+  }
+
+  /* background grid */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(79,142,247,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(79,142,247,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .container {
+    max-width: 760px;
+    margin: 0 auto;
+    position: relative;
+    z-index: 1;
+  }
+
+  header {
+    text-align: center;
+    margin-bottom: 2.5rem;
+  }
+
+  .lab-tag {
+    display: inline-block;
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    color: var(--accent);
+    background: var(--accent-dim);
+    border: 1px solid rgba(79,142,247,0.25);
+    border-radius: 4px;
+    padding: 4px 10px;
+    margin-bottom: 1rem;
+    text-transform: uppercase;
+  }
+
+  h1 {
+    font-size: clamp(1.6rem, 4vw, 2.4rem);
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    color: var(--text);
+    margin-bottom: 0.5rem;
+  }
+
+  h1 span {
+    color: var(--accent);
+  }
+
+  .subtitle {
+    color: var(--muted);
+    font-size: 0.95rem;
+    line-height: 1.6;
+  }
+
+  /* equation selector tabs */
+  .eq-tabs {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-bottom: 1.5rem;
+  }
+
+  .eq-tab {
+    font-family: var(--mono);
+    font-size: 12px;
+    padding: 7px 14px;
+    border-radius: 6px;
+    border: 1px solid var(--border2);
+    background: var(--surface);
+    color: var(--muted);
+    cursor: pointer;
+    transition: all 0.15s;
+    letter-spacing: 0.02em;
+  }
+
+  .eq-tab:hover {
+    border-color: rgba(79,142,247,0.4);
+    color: var(--text);
+    background: var(--surface2);
+  }
+
+  .eq-tab.active {
+    border-color: var(--accent);
+    background: var(--accent-dim2);
+    color: var(--accent);
+  }
+
+  /* main card */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 1.75rem;
+    margin-bottom: 1rem;
+  }
+
+  .eq-meta {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    margin-bottom: 1.5rem;
+    padding-bottom: 1.25rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .eq-number {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--accent);
+    background: var(--accent-dim);
+    border: 1px solid rgba(79,142,247,0.2);
+    border-radius: 4px;
+    padding: 3px 8px;
+    white-space: nowrap;
+    margin-top: 2px;
+  }
+
+  .eq-info h2 {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 3px;
+  }
+
+  .eq-info p {
+    font-size: 0.83rem;
+    color: var(--muted);
+  }
+
+  /* equation display */
+  .equation-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-bottom: 1.5rem;
+    padding: 1.1rem 1.25rem;
+    background: var(--surface2);
+    border-radius: 10px;
+    border: 1px solid var(--border);
+  }
+
+  .mol-group {
+    display: flex;
+    align-items: baseline;
+    gap: 2px;
+  }
+
+  .mol-coeff {
+    font-family: var(--mono);
+    font-size: 1.5rem;
+    font-weight: 500;
+    color: var(--accent);
+    min-width: 16px;
+    transition: color 0.2s;
+  }
+
+  .mol-coeff.wrong { color: var(--danger); }
+  .mol-coeff.right { color: var(--success); }
+
+  .mol-formula {
+    font-family: var(--mono);
+    font-size: 1.35rem;
+    color: var(--text);
+  }
+
+  .eq-arrow {
+    font-size: 1.4rem;
+    color: var(--muted);
+    padding: 0 6px;
+  }
+
+  .eq-plus {
+    font-size: 1.2rem;
+    color: var(--muted);
+    padding: 0 2px;
+  }
+
+  /* status badge */
+  .status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 7px 14px;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    margin-bottom: 1.25rem;
+    border: 1px solid transparent;
+    transition: all 0.25s;
+  }
+
+  .status-badge.balanced {
+    background: var(--success-dim);
+    color: var(--success);
+    border-color: rgba(62,207,142,0.25);
+  }
+
+  .status-badge.unbalanced {
+    background: var(--danger-dim);
+    color: var(--danger);
+    border-color: rgba(247,95,95,0.2);
+  }
+
+  .status-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: currentColor;
+  }
+
+  /* coefficient controls */
+  .controls-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 1.5rem;
+  }
+
+  .coeff-pill {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    border-radius: 8px;
+    padding: 6px 10px;
+    transition: border-color 0.15s;
+  }
+
+  .coeff-pill:hover { border-color: rgba(79,142,247,0.35); }
+
+  .coeff-pill-label {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--muted);
+    min-width: 38px;
+  }
+
+  .coeff-pill-val {
+    font-family: var(--mono);
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--text);
+    min-width: 22px;
+    text-align: center;
+  }
+
+  .btn-round {
+    width: 24px; height: 24px;
+    border-radius: 50%;
+    border: 1px solid var(--border2);
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+    font-size: 15px;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.15s;
+    line-height: 1;
+    padding-bottom: 1px;
+  }
+
+  .btn-round:hover {
+    background: var(--accent-dim2);
+    color: var(--accent);
+    border-color: rgba(79,142,247,0.4);
+  }
+
+  /* atom count table */
+  .atom-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85rem;
+    margin-bottom: 1.25rem;
+  }
+
+  .atom-table thead tr {
+    border-bottom: 1px solid var(--border2);
+  }
+
+  .atom-table th {
+    text-align: left;
+    padding: 7px 12px;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--muted);
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+
+  .atom-table td {
+    padding: 9px 12px;
+    border-bottom: 1px solid var(--border);
+    font-family: var(--mono);
+    font-size: 0.88rem;
+  }
+
+  .atom-table tr:last-child td { border-bottom: none; }
+
+  .atom-table td:first-child {
+    color: var(--text);
+    font-weight: 500;
+  }
+
+  .match { color: var(--success); }
+  .nomatch { color: var(--danger); }
+
+  /* action buttons */
+  .btn-row {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .btn {
+    font-family: var(--sans);
+    font-size: 13px;
+    font-weight: 500;
+    padding: 8px 16px;
+    border-radius: 7px;
+    border: 1px solid var(--border2);
+    background: var(--surface2);
+    color: var(--muted);
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .btn:hover {
+    color: var(--text);
+    border-color: rgba(255,255,255,0.2);
+    background: rgba(255,255,255,0.05);
+  }
+
+  .btn.primary {
+    background: var(--accent-dim2);
+    color: var(--accent);
+    border-color: rgba(79,142,247,0.35);
+  }
+
+  .btn.primary:hover {
+    background: rgba(79,142,247,0.3);
+    border-color: var(--accent);
+  }
+
+  /* hints */
+  .hints-box {
+    margin-top: 1.25rem;
+    border-top: 1px solid var(--border);
+    padding-top: 1.25rem;
+  }
+
+  .hint-item {
+    display: flex;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: 8px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    margin-bottom: 8px;
+    font-size: 0.85rem;
+    line-height: 1.6;
+    color: var(--muted);
+  }
+
+  .hint-item:last-child { margin-bottom: 0; }
+
+  .hint-num {
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--accent);
+    background: var(--accent-dim);
+    border: 1px solid rgba(79,142,247,0.2);
+    border-radius: 4px;
+    padding: 2px 7px;
+    white-space: nowrap;
+    height: fit-content;
+    margin-top: 1px;
+  }
+
+  /* fun fact */
+  .fun-fact {
+    background: var(--warning-dim);
+    border: 1px solid rgba(247,185,85,0.2);
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 0.82rem;
+    color: var(--warning);
+    margin-top: 1rem;
+    line-height: 1.6;
+  }
+
+  .fun-fact strong { font-weight: 600; }
+
+  /* score tracker */
+  .score-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 18px;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .score-label {
+    font-size: 12px;
+    color: var(--muted);
+    font-weight: 500;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+
+  .score-pips {
+    display: flex;
+    gap: 6px;
+  }
+
+  .pip {
+    width: 28px; height: 8px;
+    border-radius: 4px;
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    transition: all 0.3s;
+  }
+
+  .pip.done { background: var(--success); border-color: var(--success); }
+  .pip.active { background: var(--accent); border-color: var(--accent); }
+
+  /* celebration */
+  .celebration {
+    display: none;
+    text-align: center;
+    padding: 2rem;
+    background: var(--surface);
+    border: 1px solid rgba(62,207,142,0.25);
+    border-radius: 14px;
+    margin-top: 1rem;
+  }
+
+  .celebration.show { display: block; }
+
+  .celebration-emoji { font-size: 3rem; margin-bottom: 0.75rem; }
+
+  .celebration h3 {
+    font-size: 1.3rem;
+    color: var(--success);
+    margin-bottom: 0.4rem;
+  }
+
+  .celebration p {
+    color: var(--muted);
+    font-size: 0.9rem;
+  }
+
+  @media (max-width: 500px) {
+    .card { padding: 1.25rem; }
+    .eq-tabs { gap: 5px; }
+    .eq-tab { font-size: 11px; padding: 6px 10px; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <header>
+    <div class="lab-tag">⚗ Chemistry Lab</div>
+    <h1>Balance the <span>Equation</span></h1>
+    <p class="subtitle">Adjust the coefficients until every atom on the left matches the right.<br>Remember: never change the subscripts — only the big numbers in front!</p>
+  </header>
+
+  <div class="score-bar">
+    <span class="score-label">Progress</span>
+    <div class="score-pips" id="score-pips"></div>
+    <span id="score-text" style="font-family:var(--mono);font-size:13px;color:var(--muted)">0 / 5 balanced</span>
+  </div>
+
+  <div class="eq-tabs" id="eq-tabs"></div>
+
+  <div class="card" id="main-card"></div>
+
+  <div class="celebration" id="celebration">
+    <div class="celebration-emoji">🎉</div>
+    <h3>All five balanced!</h3>
+    <p>You've got this. Conservation of mass — atoms in = atoms out, every time.</p>
+  </div>
+
+</div>
+
+<script>
+const equations = [
+  {
+    name: "Water",
+    fullName: "Water formation",
+    formula: "H₂ + O₂ → H₂O",
+    description: "Hydrogen gas combines with oxygen gas to form water",
+    funFact: "💧 This reaction releases a lot of energy — it powers rocket engines. The Space Shuttle's main engines burned hydrogen and oxygen.",
+    molecules: [
+      { formula: "H₂",  side: "left",  atoms: { H: 2 } },
+      { formula: "O₂",  side: "left",  atoms: { O: 2 } },
+      { formula: "H₂O", side: "right", atoms: { H: 2, O: 1 } },
+    ],
+    answer: [2, 1, 2],
+    hints: [
+      "Start with oxygen: you need an even number of O atoms on the right to match O₂ on the left. Try putting 2 in front of H₂O.",
+      "Now count hydrogen: 2 H₂O has 4 H atoms on the right. H₂ has 2 H each, so you need 2 H₂ on the left.",
+      "Check: Left has 4 H, 2 O. Right has 4 H, 2 O. ✓"
+    ]
+  },
+  {
+    name: "Propane",
+    fullName: "Propane combustion",
+    formula: "C₃H₈ + O₂ → CO₂ + H₂O",
+    description: "Propane (natural gas) burns in oxygen to make carbon dioxide and water",
+    funFact: "🔥 This is literally what happens on a gas grill. Propane + oxygen → CO₂ + H₂O + heat. That's why grills need good airflow!",
+    molecules: [
+      { formula: "C₃H₈", side: "left",  atoms: { C: 3, H: 8 } },
+      { formula: "O₂",   side: "left",  atoms: { O: 2 } },
+      { formula: "CO₂",  side: "right", atoms: { C: 1, O: 2 } },
+      { formula: "H₂O",  side: "right", atoms: { H: 2, O: 1 } },
+    ],
+    answer: [1, 5, 3, 4],
+    hints: [
+      "Balance carbon first: C₃H₈ has 3 C atoms. Put 3 in front of CO₂ so you have 3 C on the right.",
+      "Balance hydrogen next: C₃H₈ has 8 H atoms. H₂O has 2 H each, so put 4 in front of H₂O (4 × 2 = 8 H).",
+      "Balance oxygen last: right side now has (3×2) + (4×1) = 10 O atoms. O₂ gives 2 O each, so you need 5 O₂ on the left."
+    ]
+  },
+  {
+    name: "Ammonia",
+    fullName: "Ammonia synthesis",
+    formula: "N₂ + H₂ → NH₃",
+    description: "Nitrogen and hydrogen gases combine to make ammonia",
+    funFact: "🌾 This is called the Haber process, invented in 1909. It produces most of the world's fertilizer and helps feed about half of all people on Earth.",
+    molecules: [
+      { formula: "N₂",  side: "left",  atoms: { N: 2 } },
+      { formula: "H₂",  side: "left",  atoms: { H: 2 } },
+      { formula: "NH₃", side: "right", atoms: { N: 1, H: 3 } },
+    ],
+    answer: [1, 3, 2],
+    hints: [
+      "Balance nitrogen first: N₂ has 2 N atoms. NH₃ has only 1 N each, so put 2 in front of NH₃.",
+      "Balance hydrogen: 2 NH₃ has 6 H atoms (2 × 3). H₂ gives 2 H each, so you need 3 H₂ on the left (3 × 2 = 6 H).",
+      "Check: Left has 2 N, 6 H. Right has 2 N, 6 H. ✓ Only 3 molecules total — nice and clean!"
+    ]
+  },
+  {
+    name: "Rusting",
+    fullName: "Iron oxidation (rust)",
+    formula: "Fe + O₂ → Fe₂O₃",
+    description: "Iron reacts with oxygen to form iron oxide — what we call rust",
+    funFact: "🦺 Rust actually weighs MORE than the original iron because oxygen atoms from the air are being added to the iron. A rusted iron nail is heavier than the original nail.",
+    molecules: [
+      { formula: "Fe",    side: "left",  atoms: { Fe: 1 } },
+      { formula: "O₂",   side: "left",  atoms: { O: 2 } },
+      { formula: "Fe₂O₃",side: "right", atoms: { Fe: 2, O: 3 } },
+    ],
+    answer: [4, 3, 2],
+    hints: [
+      "This one is tricky! O₂ gives even numbers of O, but Fe₂O₃ needs 3 O per molecule. Find the LCM of 2 and 3 — it's 6. So aim for 6 O atoms on each side.",
+      "To get 6 O on the right, you need 2 Fe₂O₃ (2 × 3 = 6 O). That also means you have 4 Fe on the right (2 × 2 = 4 Fe).",
+      "Now balance the left: you need 4 Fe atoms, so put 4 in front of Fe. You need 6 O atoms, so put 3 in front of O₂ (3 × 2 = 6 O)."
+    ]
+  },
+  {
+    name: "Acid-Base",
+    fullName: "Acid-base neutralization",
+    formula: "NaOH + HCl → NaCl + H₂O",
+    description: "Sodium hydroxide (a base) neutralizes hydrochloric acid to make table salt and water",
+    funFact: "🧪 This is called a neutralization reaction. Mixing an acid and a base together cancels them out. Antacid tablets work the same way — a base neutralizing stomach acid.",
+    molecules: [
+      { formula: "NaOH", side: "left",  atoms: { Na: 1, O: 1, H: 1 } },
+      { formula: "HCl",  side: "left",  atoms: { H: 1, Cl: 1 } },
+      { formula: "NaCl", side: "right", atoms: { Na: 1, Cl: 1 } },
+      { formula: "H₂O",  side: "right", atoms: { H: 2, O: 1 } },
+    ],
+    answer: [1, 1, 1, 1],
+    hints: [
+      "Count atoms on the left with all coefficients = 1: Na(1), O(1), H(2), Cl(1). Now check the right side.",
+      "Right side with all 1s: Na(1), Cl(1), H(2), O(1). Compare both sides element by element.",
+      "Every element matches at 1-1-1-1! This one is already balanced. Sometimes the answer is simpler than you think."
+    ]
+  }
+];
+
+let current = 0;
+let coeffs = equations.map(eq => new Array(eq.molecules.length).fill(1));
+let balanced = new Array(equations.length).fill(false);
+let showHints = new Array(equations.length).fill(false);
+
+function getCounts(eqIdx, side) {
+  const eq = equations[eqIdx];
+  const c = coeffs[eqIdx];
+  const counts = {};
+  eq.molecules.forEach((m, i) => {
+    if (m.side !== side) return;
+    Object.entries(m.atoms).forEach(([el, n]) => {
+      counts[el] = (counts[el] || 0) + c[i] * n;
+    });
+  });
+  return counts;
+}
+
+function checkBalanced(eqIdx) {
+  const l = getCounts(eqIdx, "left"), r = getCounts(eqIdx, "right");
+  const els = new Set([...Object.keys(l), ...Object.keys(r)]);
+  for (const el of els) if ((l[el]||0) !== (r[el]||0)) return false;
+  return true;
+}
+
+function renderTabs() {
+  const tabs = document.getElementById('eq-tabs');
+  tabs.innerHTML = equations.map((eq, i) => {
+    let extra = balanced[i] ? ' style="border-color:rgba(62,207,142,0.5);color:#3ecf8e;background:rgba(62,207,142,0.08)"' : '';
+    return `<button class="eq-tab${i === current ? ' active' : ''}"${extra} onclick="selectEq(${i})">${balanced[i] ? '✓ ' : ''}${eq.name}</button>`;
+  }).join('');
+}
+
+function renderScore() {
+  const pips = document.getElementById('score-pips');
+  const count = balanced.filter(Boolean).length;
+  pips.innerHTML = equations.map((_, i) => {
+    let cls = balanced[i] ? 'done' : (i === current ? 'active' : '');
+    return `<div class="pip ${cls}"></div>`;
+  }).join('');
+  document.getElementById('score-text').textContent = `${count} / 5 balanced`;
+  if (count === 5) {
+    document.getElementById('celebration').classList.add('show');
+  }
+}
+
+function renderMain() {
+  const eq = equations[current];
+  const c = coeffs[current];
+  const isBalanced = checkBalanced(current);
+  balanced[current] = isBalanced;
+
+  const leftMols = eq.molecules.filter(m => m.side === "left");
+  const rightMols = eq.molecules.filter(m => m.side === "right");
+
+  // equation display
+  function molHtml(m) {
+    const idx = eq.molecules.indexOf(m);
+    const val = c[idx];
+    const ans = eq.answer[idx];
+    let cls = '';
+    if (isBalanced) cls = 'right';
+    else if (val > 1) cls = (val === ans) ? 'right' : 'wrong';
+    return `<div class="mol-group">
+      <span class="mol-coeff ${cls}">${val > 1 ? val : ''}</span>
+      <span class="mol-formula">${m.formula}</span>
+    </div>`;
+  }
+
+  let eqHtml = '<div class="equation-row">';
+  leftMols.forEach((m, i) => {
+    if (i > 0) eqHtml += '<span class="eq-plus">+</span>';
+    eqHtml += molHtml(m);
+  });
+  eqHtml += '<span class="eq-arrow">→</span>';
+  rightMols.forEach((m, i) => {
+    if (i > 0) eqHtml += '<span class="eq-plus">+</span>';
+    eqHtml += molHtml(m);
+  });
+  eqHtml += '</div>';
+
+  // atom table
+  const lc = getCounts(current, "left");
+  const rc = getCounts(current, "right");
+  const els = [...new Set([...Object.keys(lc), ...Object.keys(rc)])].sort();
+  let tbl = `<table class="atom-table">
+    <thead><tr><th>Element</th><th>Left side</th><th>Right side</th><th>Match?</th></tr></thead>
+    <tbody>`;
+  els.forEach(el => {
+    const l = lc[el]||0, r = rc[el]||0;
+    const ok = l === r;
+    tbl += `<tr>
+      <td>${el}</td>
+      <td>${l}</td>
+      <td>${r}</td>
+      <td class="${ok ? 'match' : 'nomatch'}">${ok ? '✓' : '✗'}</td>
+    </tr>`;
+  });
+  tbl += '</tbody></table>';
+
+  // coefficient controls
+  let ctrl = '<div class="controls-grid">';
+  eq.molecules.forEach((m, i) => {
+    ctrl += `<div class="coeff-pill">
+      <span class="coeff-pill-label">${m.formula}</span>
+      <button class="btn-round" onclick="changeCoeff(${i}, -1)">−</button>
+      <span class="coeff-pill-val">${c[i]}</span>
+      <button class="btn-round" onclick="changeCoeff(${i}, 1)">+</button>
+    </div>`;
+  });
+  ctrl += '</div>';
+
+  // hints
+  let hintsHtml = '';
+  if (showHints[current]) {
+    hintsHtml = `<div class="hints-box">` +
+      eq.hints.map((h, i) => `<div class="hint-item"><span class="hint-num">Step ${i+1}</span><span>${h}</span></div>`).join('') +
+    `</div>`;
+  }
+
+  document.getElementById('main-card').innerHTML = `
+    <div class="eq-meta">
+      <span class="eq-number">${current + 1} of 5</span>
+      <div class="eq-info">
+        <h2>${eq.fullName}</h2>
+        <p>${eq.description}</p>
+      </div>
+    </div>
+    ${eqHtml}
+    <div class="status-badge ${isBalanced ? 'balanced' : 'unbalanced'}">
+      <span class="status-dot"></span>
+      ${isBalanced ? '✓ Balanced! Great work.' : 'Not balanced yet — keep adjusting'}
+    </div>
+    ${tbl}
+    ${ctrl}
+    <div class="btn-row">
+      <button class="btn" onclick="resetEq()">Reset</button>
+      <button class="btn primary" onclick="toggleHints()">${showHints[current] ? 'Hide hints' : 'Show hints'}</button>
+      <button class="btn" onclick="showAnswer()">Show answer</button>
+    </div>
+    ${hintsHtml}
+    <div class="fun-fact">${eq.funFact}</div>
+  `;
+
+  renderTabs();
+  renderScore();
+}
+
+function selectEq(i) {
+  current = i;
+  renderMain();
+}
+
+function changeCoeff(i, d) {
+  coeffs[current][i] = Math.max(1, coeffs[current][i] + d);
+  renderMain();
+}
+
+function resetEq() {
+  const eq = equations[current];
+  coeffs[current] = new Array(eq.molecules.length).fill(1);
+  showHints[current] = false;
+  renderMain();
+}
+
+function showAnswer() {
+  coeffs[current] = [...equations[current].answer];
+  renderMain();
+}
+
+function toggleHints() {
+  showHints[current] = !showHints[current];
+  renderMain();
+}
+
+renderMain();
+</script>
+</body>
+</html>
